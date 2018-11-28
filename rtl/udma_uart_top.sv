@@ -104,6 +104,8 @@ module udma_uart_top #(
     logic         s_uart_tx_sample;
     logic         s_uart_rx_sample;
 
+    logic [1:0] [2:0] r_status_sync;
+
     assign data_tx_datasize_o = 2'b00;
     assign data_rx_datasize_o = 2'b00;
 
@@ -141,7 +143,7 @@ module udma_uart_top #(
         .cfg_tx_curr_addr_i ( cfg_tx_curr_addr_i  ),
         .cfg_tx_bytes_left_i( cfg_tx_bytes_left_i ),
 
-        .status_i           ( s_uart_status       ),
+        .status_i           ( r_status_sync[1]    ),
         .err_clr_o          ( s_uart_err_clr      ),
         .stop_bits_o        ( s_uart_stop_bits    ),
         .parity_en_o        ( s_uart_parity_en    ),
@@ -232,6 +234,19 @@ module udma_uart_top #(
 
     assign s_uart_tx_sample = r_uart_en_tx_sync[1] & ! r_uart_en_tx_sync[2];
     assign s_uart_rx_sample = r_uart_en_rx_sync[1] & ! r_uart_en_rx_sync[2];
+
+    always_ff @(posedge sys_clk_i or negedge rstn_i) 
+    begin
+        if(~rstn_i) 
+        begin
+            r_status_sync <= 0;
+        end 
+        else 
+        begin
+            r_status_sync[0] <= s_uart_status;
+            r_status_sync[1] <= r_status_sync[0];
+        end
+    end
 
     always_ff @(posedge periph_clk_i or negedge rstn_i) 
     begin
