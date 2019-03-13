@@ -28,14 +28,15 @@ module udma_uart_rx (
 		input  logic  [1:0]     cfg_bits_i,
 		input  logic            cfg_stop_bits_i,
         output logic            busy_o,
-        output logic            err_o,
-        input  logic            err_clr_i,
+        output logic            err_parity_o,
+        output logic            err_overflow_o,
+        output logic            char_event_o,
 		output logic  [7:0]     rx_data_o,
 		output logic            rx_valid_o,
 		input  logic            rx_ready_i
 		);
 	
-	enum logic [2:0] {IDLE,START_BIT,DATA,SAVE_DATA,PARITY,STOP_BIT} CS,NS;
+	enum logic [2:0] {IDLE,START_BIT,DATA,PARITY,STOP_BIT} CS,NS;
 	
 	logic [7:0] reg_data;
 	logic [7:0] reg_data_next;
@@ -51,18 +52,21 @@ module udma_uart_rx (
 	logic       parity_bit;
 	logic       parity_bit_next;
 	
-	logic       sampleData;
+	logic       s_sample_data;
 	
 	logic [15:0] baud_cnt;
 	logic        baudgen_en;
 	logic        bit_done;
 
     logic        start_bit;
-    logic        set_error;
     logic        s_rx_fall;
 
+    logic        s_set_error_parity;
+    logic        r_error_parity;
+    logic        s_err_clear;
+
     assign busy_o = (CS != IDLE);
-	
+
     always_comb
     begin
         case(cfg_bits_i)
@@ -80,14 +84,18 @@ module udma_uart_rx (
 	always_comb
 	begin
 		NS = CS;
-		sampleData = 1'b0;
+		s_sample_data = 1'b0;
 		reg_bit_count_next  = reg_bit_count;
 		reg_data_next = reg_data;
 		rx_valid_o = 1'b0;
 		baudgen_en = 1'b0;
         start_bit  = 1'b0;
 		parity_bit_next = parity_bit;
-        set_error  = 1'b0;
+        err_parity_o    = 1'b0;
+        err_overflow_o  = 1'b0;
+        char_event_o    = 1'b0;
+        s_set_error_parity   = 1'b0;
+        s_err_clear          = 1'b0;
 		case(CS)
 			IDLE:
             begin
@@ -96,6 +104,7 @@ module udma_uart_rx (
 					NS = START_BIT;
     				baudgen_en = 1'b1;
                     start_bit  = 1'b1;
+                    s_err_clear = 1'b1;
 				end
             end
 
@@ -125,11 +134,14 @@ module udma_uart_rx (
         		
 				if (bit_done)
 				begin
-					sampleData = 1'b1;
+					s_sample_data = 1'b1;
 					if (reg_bit_count == s_target_bits)
 					begin
 						reg_bit_count_next = 'h0;
-						NS = SAVE_DATA;
+						if (cfg_parity_en_i)
+							NS = PARITY;
+						else
+							NS = STOP_BIT;
 					end
 					else
 					begin
@@ -137,23 +149,13 @@ module udma_uart_rx (
 					end
 				end
 			end
-            SAVE_DATA:
-            begin
-				baudgen_en = 1'b1;
-                rx_valid_o = 1'b1;
-                if(rx_ready_i)
-					if (cfg_parity_en_i)
-						NS = PARITY;
-					else
-						NS = STOP_BIT;                    
-            end
 			PARITY:
 			begin
 				baudgen_en = 1'b1;
 				if (bit_done)
                 begin
                     if(parity_bit != reg_rx_sync[2])
-                        set_error = 1'b1;
+                        s_set_error_parity = 1'b1;
 				    NS = STOP_BIT;
                 end
 			end
@@ -163,6 +165,16 @@ module udma_uart_rx (
 				if (bit_done)
 				begin
 					NS = IDLE;
+					if(!r_error_parity)
+					begin
+						rx_valid_o = 1'b1;
+						if(!rx_ready_i)
+							err_overflow_o = 1'b1;
+						else
+							char_event_o = 1'b1;
+					end
+					else
+						err_parity_o = 1'b1;
 				end
 			end
             default:
@@ -183,7 +195,7 @@ module udma_uart_rx (
 		begin
             if(bit_done)
                 parity_bit <= parity_bit_next;
-			if(sampleData)
+			if(s_sample_data)
 				reg_data <= reg_data_next;
 
 			reg_bit_count  <= reg_bit_count_next;
@@ -247,18 +259,18 @@ module udma_uart_rx (
 	begin
 		if (rstn_i == 1'b0)
 		begin
-			err_o <= 1'b0;
+			r_error_parity   <= 1'b0;
 		end
 		else
 		begin
-			if(err_clr_i)
+			if(s_err_clear)
 			begin
-    			err_o <= 1'b0;
+				r_error_parity   <= 1'b0;
 			end
 			else
 			begin
-                if(set_error)
-    			    err_o <= 1'b1;
+                if(s_set_error_parity)
+    			    r_error_parity <= 1'b1;
 			end
 		end
 	end
