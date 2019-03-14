@@ -75,12 +75,14 @@ module udma_uart_top #(
 
 );
 
-    logic               [2:0]  s_uart_status;
-    logic                      s_uart_err_clr;
+    logic               [1:0]  s_uart_status;
     logic                      s_uart_stop_bits;
     logic                      s_uart_parity_en;
     logic              [15:0]  s_uart_div;
     logic               [1:0]  s_uart_bits;
+    logic                      s_uart_rx_polling_en;
+    logic                      s_uart_rx_irq_en;
+    logic                      s_uart_err_irq_en;
     logic                      s_uart_en_rx;
     logic                      s_uart_en_tx;
 
@@ -94,8 +96,6 @@ module udma_uart_top #(
     logic         s_data_rx_dc_ready;
     logic   [7:0] s_data_rx_dc;
 
-    logic  [2:0]  r_uart_status;
-    logic         r_uart_err_clr;
     logic         r_uart_stop_bits;
     logic         r_uart_parity_en;
     logic [15:0]  r_uart_div;
@@ -116,11 +116,13 @@ module udma_uart_top #(
     logic         s_rx_char_event;
     logic         s_rx_char_event_sync;
 
+    assign cfg_tx_datasize_o  = 2'b00;
+    assign cfg_rx_datasize_o  = 2'b00;
     assign data_tx_datasize_o = 2'b00;
     assign data_rx_datasize_o = 2'b00;
 
-    assign err_event_o = s_err_rx_overflow_sync | s_err_rx_parity_sync;
-    assign rx_char_event_o = s_rx_char_event_sync;
+    assign err_event_o = (s_err_rx_overflow_sync | s_err_rx_parity_sync) & s_uart_err_irq_en;
+    assign rx_char_event_o = s_rx_char_event_sync & s_uart_rx_irq_en & ~s_uart_rx_polling_en;
 
     udma_uart_reg_if #(
         .L2_AWIDTH_NOAL(L2_AWIDTH_NOAL),
@@ -156,6 +158,9 @@ module udma_uart_top #(
         .cfg_tx_curr_addr_i ( cfg_tx_curr_addr_i  ),
         .cfg_tx_bytes_left_i( cfg_tx_bytes_left_i ),
 
+        .rx_data_i          ( s_data_rx_dc        ),
+        .rx_valid_i         ( s_rx_char_event_sync  ), // Pay attention to clock domain
+
         .status_i           ( r_status_sync[1]    ),
         .err_parity_i       ( s_err_rx_parity_sync   ),
         .err_overflow_i     ( s_err_rx_overflow_sync ),
@@ -163,6 +168,9 @@ module udma_uart_top #(
         .parity_en_o        ( s_uart_parity_en    ),
         .divider_o          ( s_uart_div          ),
         .num_bits_o         ( s_uart_bits         ),
+        .rx_polling_en_o    ( s_uart_rx_polling_en ),
+        .rx_irq_en_o        ( s_uart_rx_irq_en    ),
+        .err_irq_en_o       ( s_uart_err_irq_en   ),
         .en_rx_o			( s_uart_en_rx        ),
         .en_tx_o			( s_uart_en_tx        )
     );
@@ -220,7 +228,7 @@ module udma_uart_top #(
         .src_clk_i    ( periph_clk_i       ),  
         .src_rstn_i   ( rstn_i             ),  
         .src_data_i   ( s_data_rx_dc       ),
-        .src_valid_i  ( s_data_rx_dc_valid ),
+        .src_valid_i  ( s_data_rx_dc_valid & ~s_uart_rx_irq_en & ~s_uart_rx_polling_en ),
         .src_ready_o  ( s_data_rx_dc_ready ),
         .dst_clk_i    ( sys_clk_i          ),
         .dst_rstn_i   ( rstn_i             ),
