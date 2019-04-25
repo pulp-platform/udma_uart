@@ -192,14 +192,17 @@ module udma_uart_reg_if #(
             else if(s_err_clr)
                 r_err_parity <= 1'b0;
 
-            if(rx_valid_i) begin
-               r_uart_rx_data       <= rx_data_i;
-               r_uart_rx_data_valid <= rx_valid_i;
-            end
-            else if (s_rx_valid_clr) begin
-               r_uart_rx_data_valid <= 1'b0;
-            end
-
+           if (r_uart_rx_polling_en | r_uart_rx_irq_en) begin
+              if(rx_valid_i) begin
+                 r_uart_rx_data       <= rx_data_i;
+                 r_uart_rx_data_valid <= rx_valid_i;
+              end
+              else if (s_rx_valid_clr) begin
+                 r_uart_rx_data_valid <= 1'b0;
+              end
+           end else begin
+              r_uart_rx_data_valid <= 1'b0;
+           end
 
             if (cfg_valid_i & ~cfg_rwn_i)
             begin
