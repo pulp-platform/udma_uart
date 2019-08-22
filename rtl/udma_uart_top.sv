@@ -80,11 +80,14 @@ module udma_uart_top #(
     logic                      s_uart_parity_en;
     logic              [15:0]  s_uart_div;
     logic               [1:0]  s_uart_bits;
+    logic                      s_uart_rx_clean_fifo;
     logic                      s_uart_rx_polling_en;
     logic                      s_uart_rx_irq_en;
     logic                      s_uart_err_irq_en;
     logic                      s_uart_en_rx;
     logic                      s_uart_en_tx;
+    logic                      s_data_rx_ready_mux;
+    logic                      s_data_rx_ready;
 
     logic         s_data_tx_valid;
     logic         s_data_tx_ready;
@@ -158,8 +161,9 @@ module udma_uart_top #(
         .cfg_tx_curr_addr_i ( cfg_tx_curr_addr_i  ),
         .cfg_tx_bytes_left_i( cfg_tx_bytes_left_i ),
 
-        .rx_data_i          ( s_data_rx_dc        ),
-        .rx_valid_i         ( s_rx_char_event_sync  ), // Pay attention to clock domain
+        .rx_data_i          ( data_rx_o[7:0]      ),
+        .rx_valid_i         ( data_rx_valid_o     ), // Pay attention to clock domain
+        .rx_ready_o         ( s_data_rx_ready     ), // Pay attention to clock domain
 
         .status_i           ( r_status_sync[1]    ),
         .err_parity_i       ( s_err_rx_parity_sync   ),
@@ -168,6 +172,7 @@ module udma_uart_top #(
         .parity_en_o        ( s_uart_parity_en    ),
         .divider_o          ( s_uart_div          ),
         .num_bits_o         ( s_uart_bits         ),
+        .rx_clean_fifo_o    ( s_uart_rx_clean_fifo ),
         .rx_polling_en_o    ( s_uart_rx_polling_en ),
         .rx_irq_en_o        ( s_uart_rx_irq_en    ),
         .err_irq_en_o       ( s_uart_err_irq_en   ),
@@ -226,16 +231,18 @@ module udma_uart_top #(
     udma_dc_fifo #(8,4) u_dc_fifo_rx
     (
         .src_clk_i    ( periph_clk_i       ),  
-        .src_rstn_i   ( rstn_i             ),  
+        .src_rstn_i   ( rstn_i & ~s_uart_rx_clean_fifo ),  
         .src_data_i   ( s_data_rx_dc       ),
-        .src_valid_i  ( s_data_rx_dc_valid & ~s_uart_rx_irq_en & ~s_uart_rx_polling_en ),
+        .src_valid_i  ( s_data_rx_dc_valid ),
         .src_ready_o  ( s_data_rx_dc_ready ),
         .dst_clk_i    ( sys_clk_i          ),
-        .dst_rstn_i   ( rstn_i             ),
+        .dst_rstn_i   ( rstn_i & ~s_uart_rx_clean_fifo ),
         .dst_data_o   ( data_rx_o[7:0]     ),
         .dst_valid_o  ( data_rx_valid_o    ),
-        .dst_ready_i  ( data_rx_ready_i    )
+        .dst_ready_i  ( s_data_rx_ready_mux    )
     );
+
+   assign s_data_rx_ready_mux = (s_uart_rx_irq_en | s_uart_rx_polling_en) ? s_data_rx_ready : data_rx_ready_i;
 
     udma_uart_rx u_uart_rx(
         .clk_i           ( periph_clk_i       ),
@@ -281,6 +288,7 @@ module udma_uart_top #(
         .rstn_rx_i(rstn_i),
         .edge_o(s_rx_char_event_sync)
     );
+
 
     assign s_uart_tx_sample = r_uart_en_tx_sync[1] & ! r_uart_en_tx_sync[2];
     assign s_uart_rx_sample = r_uart_en_rx_sync[1] & ! r_uart_en_rx_sync[2];
