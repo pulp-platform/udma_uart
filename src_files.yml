@@ -5,18 +5,4 @@ udma_uart:
     rtl/udma_uart_rx.sv,
     rtl/udma_uart_tx.sv,
   ]
-  jg_slint_top_name: [
-    udma_uart_top
-  ]
-  jg_slint_elab_opt: [
-  ]
-  jg_slint_postelab_cmds: [
-  ]
-  jg_slint_clocks: [
-    sys_clk_i,
-    periph_clk_i,
-  ]
-  jg_slint_resets: [
-    ~rstn_i,
-  ]
 
