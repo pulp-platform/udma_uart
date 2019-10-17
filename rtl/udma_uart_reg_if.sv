@@ -32,6 +32,9 @@
 `define REG_STATUS       5'b01000 //BASEADDR+0x20
 `define REG_UART_SETUP   5'b01001 //BASEADDR+0x24
 `define REG_ERROR        5'b01010 //BASEADDR+0x28
+`define REG_IRQ_EN       5'b01011 //BASEADDR+0x2C
+`define REG_VALID        5'b01100 //BASEADDR+0x30
+`define REG_DATA         5'b01101 //BASEADDR+0x34
 
 module udma_uart_reg_if #(
     parameter L2_AWIDTH_NOAL = 12,
@@ -72,10 +75,16 @@ module udma_uart_reg_if #(
     input  logic                      err_parity_i,
     input  logic                      err_overflow_i,
 
+    input  logic                [7:0] rx_data_i,
+    input  logic                      rx_valid_i,
+
     output logic                      stop_bits_o,
     output logic                      parity_en_o,
     output logic              [15:0]  divider_o,
     output logic               [1:0]  num_bits_o,
+    output logic                      rx_polling_en_o,
+    output logic                      rx_irq_en_o,
+    output logic                      err_irq_en_o,
     output logic                      en_rx_o,
     output logic                      en_tx_o
 );
@@ -103,8 +112,14 @@ module udma_uart_reg_if #(
     logic                [4:0] s_rd_addr;
 
     logic                      s_err_clr;
+    logic                      s_rx_valid_clr;
     logic                      r_err_parity;
     logic                      r_err_overflow;
+    logic                      r_uart_rx_polling_en;
+    logic                      r_uart_err_irq_en;
+    logic                      r_uart_rx_irq_en;
+    logic                [7:0] r_uart_rx_data;
+    logic                      r_uart_rx_data_valid;
 
     assign s_wr_addr = (cfg_valid_i & ~cfg_rwn_i) ? cfg_addr_i : 5'h0;
     assign s_rd_addr = (cfg_valid_i &  cfg_rwn_i) ? cfg_addr_i : 5'h0;
@@ -127,6 +142,9 @@ module udma_uart_reg_if #(
     assign num_bits_o      = r_uart_bits;
     assign parity_en_o     = r_uart_parity_en;
     assign stop_bits_o     = r_uart_stop_bits;
+    assign rx_polling_en_o = r_uart_rx_polling_en;
+    assign rx_irq_en_o     = r_uart_rx_irq_en;
+    assign err_irq_en_o    = r_uart_err_irq_en;
 
     always_ff @(posedge clk_i, negedge rstn_i) 
     begin
@@ -151,6 +169,11 @@ module udma_uart_reg_if #(
             r_uart_en_rx       <=  'h0;
             r_err_parity       <=  'h0;
             r_err_overflow     <=  'h0;
+            r_uart_rx_polling_en <= 'h0;
+            r_uart_rx_irq_en   <=  'h0;
+            r_uart_err_irq_en  <=  'h0;
+            r_uart_rx_data     <=  'h0;
+            r_uart_rx_data_valid <='h0;
         end
         else
         begin
@@ -160,14 +183,23 @@ module udma_uart_reg_if #(
             r_tx_clr  =  'h0;
 
             if(err_overflow_i)
-                r_err_overflow = 1'b1;
+                r_err_overflow <= 1'b1;
             else if(s_err_clr)
-                r_err_overflow = 1'b0;
+                r_err_overflow <= 1'b0;
 
             if(err_parity_i)
-                r_err_parity = 1'b1;
+                r_err_parity <= 1'b1;
             else if(s_err_clr)
-                r_err_parity = 1'b0;
+                r_err_parity <= 1'b0;
+
+            if(rx_valid_i) begin
+               r_uart_rx_data       <= rx_data_i;
+               r_uart_rx_data_valid <= rx_valid_i;
+            end
+            else if (s_rx_valid_clr) begin
+               r_uart_rx_data_valid <= 1'b0;
+            end
+
 
             if (cfg_valid_i & ~cfg_rwn_i)
             begin
@@ -196,13 +228,18 @@ module udma_uart_reg_if #(
                 `REG_UART_SETUP:
                 begin
                     r_uart_div        <= cfg_data_i[31:16];
-                    r_uart_en_tx      <= cfg_data_i[8];
                     r_uart_en_rx      <= cfg_data_i[9];
+                    r_uart_en_tx      <= cfg_data_i[8];
+                    r_uart_rx_polling_en <= cfg_data_i[4];
                     r_uart_stop_bits  <= cfg_data_i[3];
                     r_uart_bits       <= cfg_data_i[2:1];
                     r_uart_parity_en  <= cfg_data_i[0];
                 end
-
+                `REG_IRQ_EN:
+                  begin
+                    r_uart_err_irq_en <= cfg_data_i[1];
+                    r_uart_rx_irq_en  <= cfg_data_i[0];
+                  end
                 endcase
             end
         end
@@ -211,7 +248,10 @@ module udma_uart_reg_if #(
     always_comb
     begin
         cfg_data_o = 32'h0;
+
         s_err_clr = 1'b0;
+        s_rx_valid_clr = 1'b0;
+
         case (s_rd_addr)
         `REG_RX_SADDR:
             cfg_data_o = cfg_rx_curr_addr_i;
@@ -226,14 +266,23 @@ module udma_uart_reg_if #(
         `REG_TX_CFG:
             cfg_data_o = {26'h0,cfg_tx_pending_i,cfg_tx_en_i,3'h0,r_tx_continuous};
         `REG_UART_SETUP:
-            cfg_data_o = {r_uart_div, 6'h0, r_uart_en_rx, r_uart_en_tx, 4'h0, r_uart_stop_bits,r_uart_bits, r_uart_parity_en};
+            cfg_data_o = {r_uart_div, 6'h0, r_uart_en_rx, r_uart_en_tx, 3'h0, r_uart_rx_polling_en, r_uart_stop_bits,r_uart_bits, r_uart_parity_en};
         `REG_STATUS:
             cfg_data_o = {30'h0,status_i};
         `REG_ERROR:
-        begin
+         begin
             cfg_data_o = {30'h0,r_err_parity,r_err_overflow};
             s_err_clr = 1'b1;
-        end
+         end
+        `REG_IRQ_EN:
+            cfg_data_o = {30'h0, r_uart_err_irq_en, r_uart_rx_irq_en};
+        `REG_VALID:
+            cfg_data_o = {31'h0, r_uart_rx_data_valid};
+        `REG_DATA:
+          begin
+             cfg_data_o     = {24'h0, r_uart_rx_data};
+             s_rx_valid_clr = 1'b1;
+          end
         default:
             cfg_data_o = 'h0;
         endcase
