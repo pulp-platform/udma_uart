@@ -29,6 +29,9 @@ module udma_uart_top #(
 	input  logic                      uart_rx_i,
 	output logic                      uart_tx_o,
 
+    output logic                      rx_char_event_o,
+    output logic                      err_event_o,
+
 	input  logic               [31:0] cfg_data_i,
 	input  logic                [4:0] cfg_addr_i,
 	input  logic                      cfg_valid_i,
@@ -104,10 +107,20 @@ module udma_uart_top #(
     logic         s_uart_tx_sample;
     logic         s_uart_rx_sample;
 
-    logic [1:0] [2:0] r_status_sync;
+    logic [1:0] [1:0] r_status_sync;
+
+    logic         s_err_rx_overflow;
+    logic         s_err_rx_overflow_sync;
+    logic         s_err_rx_parity;
+    logic         s_err_rx_parity_sync;
+    logic         s_rx_char_event;
+    logic         s_rx_char_event_sync;
 
     assign data_tx_datasize_o = 2'b00;
     assign data_rx_datasize_o = 2'b00;
+
+    assign err_event_o = s_err_rx_overflow_sync | s_err_rx_parity_sync;
+    assign rx_char_event_o = s_rx_char_event_sync;
 
     udma_uart_reg_if #(
         .L2_AWIDTH_NOAL(L2_AWIDTH_NOAL),
@@ -144,7 +157,8 @@ module udma_uart_top #(
         .cfg_tx_bytes_left_i( cfg_tx_bytes_left_i ),
 
         .status_i           ( r_status_sync[1]    ),
-        .err_clr_o          ( s_uart_err_clr      ),
+        .err_parity_i       ( s_err_rx_parity_sync   ),
+        .err_overflow_i     ( s_err_rx_overflow_sync ),
         .stop_bits_o        ( s_uart_stop_bits    ),
         .parity_en_o        ( s_uart_parity_en    ),
         .divider_o          ( s_uart_div          ),
@@ -225,11 +239,39 @@ module udma_uart_top #(
 		.cfg_parity_en_i ( r_uart_parity_en   ),
 		.cfg_bits_i      ( r_uart_bits        ),
 		.cfg_stop_bits_i ( r_uart_stop_bits   ),
-        .err_o           ( s_uart_status[2]   ),                              //TODO add err 
-        .err_clr_i       ( s_uart_err_clr     ),
+        .err_parity_o    ( s_err_rx_parity    ),
+        .err_overflow_o  ( s_err_rx_overflow  ),
+        .char_event_o    ( s_rx_char_event    ),
 		.rx_data_o       ( s_data_rx_dc       ),
 		.rx_valid_o      ( s_data_rx_dc_valid ),
 		.rx_ready_i      ( s_data_rx_dc_ready )
+    );
+
+    edge_propagator i_ep_err_overflow (
+        .clk_tx_i(periph_clk_i),
+        .rstn_tx_i(rstn_i),
+        .edge_i(s_err_rx_overflow),
+        .clk_rx_i(sys_clk_i),
+        .rstn_rx_i(rstn_i),
+        .edge_o(s_err_rx_overflow_sync)
+    );
+
+    edge_propagator i_ep_err_parity (
+        .clk_tx_i(periph_clk_i),
+        .rstn_tx_i(rstn_i),
+        .edge_i(s_err_rx_parity),
+        .clk_rx_i(sys_clk_i),
+        .rstn_rx_i(rstn_i),
+        .edge_o(s_err_rx_parity_sync)
+    );
+
+    edge_propagator i_ep_event (
+        .clk_tx_i(periph_clk_i),
+        .rstn_tx_i(rstn_i),
+        .edge_i(s_rx_char_event),
+        .clk_rx_i(sys_clk_i),
+        .rstn_rx_i(rstn_i),
+        .edge_o(s_rx_char_event_sync)
     );
 
     assign s_uart_tx_sample = r_uart_en_tx_sync[1] & ! r_uart_en_tx_sync[2];

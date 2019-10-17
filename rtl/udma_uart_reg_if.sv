@@ -31,6 +31,7 @@
 
 `define REG_STATUS       5'b01000 //BASEADDR+0x20
 `define REG_UART_SETUP   5'b01001 //BASEADDR+0x24
+`define REG_ERROR        5'b01010 //BASEADDR+0x28
 
 module udma_uart_reg_if #(
     parameter L2_AWIDTH_NOAL = 12,
@@ -66,8 +67,11 @@ module udma_uart_reg_if #(
     input  logic [L2_AWIDTH_NOAL-1:0] cfg_tx_curr_addr_i,
     input  logic     [TRANS_SIZE-1:0] cfg_tx_bytes_left_i,
 
-    input  logic               [2:0]  status_i,
-    output logic                      err_clr_o,
+    input  logic               [1:0]  status_i,
+
+    input  logic                      err_parity_i,
+    input  logic                      err_overflow_i,
+
     output logic                      stop_bits_o,
     output logic                      parity_en_o,
     output logic              [15:0]  divider_o,
@@ -97,6 +101,10 @@ module udma_uart_reg_if #(
 
     logic                [4:0] s_wr_addr;
     logic                [4:0] s_rd_addr;
+
+    logic                      s_err_clr;
+    logic                      r_err_parity;
+    logic                      r_err_overflow;
 
     assign s_wr_addr = (cfg_valid_i & ~cfg_rwn_i) ? cfg_addr_i : 5'h0;
     assign s_rd_addr = (cfg_valid_i &  cfg_rwn_i) ? cfg_addr_i : 5'h0;
@@ -141,6 +149,8 @@ module udma_uart_reg_if #(
             r_uart_parity_en   <=  'h0;
             r_uart_en_tx       <=  'h0;
             r_uart_en_rx       <=  'h0;
+            r_err_parity       <=  'h0;
+            r_err_overflow     <=  'h0;
         end
         else
         begin
@@ -148,6 +158,16 @@ module udma_uart_reg_if #(
             r_rx_clr  =  'h0;
             r_tx_en   =  'h0;
             r_tx_clr  =  'h0;
+
+            if(err_overflow_i)
+                r_err_overflow = 1'b1;
+            else if(s_err_clr)
+                r_err_overflow = 1'b0;
+
+            if(err_parity_i)
+                r_err_parity = 1'b1;
+            else if(s_err_clr)
+                r_err_parity = 1'b0;
 
             if (cfg_valid_i & ~cfg_rwn_i)
             begin
@@ -191,7 +211,7 @@ module udma_uart_reg_if #(
     always_comb
     begin
         cfg_data_o = 32'h0;
-        err_clr_o = 1'b0;
+        s_err_clr = 1'b0;
         case (s_rd_addr)
         `REG_RX_SADDR:
             cfg_data_o = cfg_rx_curr_addr_i;
@@ -208,10 +228,12 @@ module udma_uart_reg_if #(
         `REG_UART_SETUP:
             cfg_data_o = {r_uart_div, 6'h0, r_uart_en_rx, r_uart_en_tx, 4'h0, r_uart_stop_bits,r_uart_bits, r_uart_parity_en};
         `REG_STATUS:
+            cfg_data_o = {30'h0,status_i};
+        `REG_ERROR:
         begin
-            cfg_data_o = {29'h0,status_i};
-	        err_clr_o = 1'b1;
-	    end
+            cfg_data_o = {30'h0,r_err_parity,r_err_overflow};
+            s_err_clr = 1'b1;
+        end
         default:
             cfg_data_o = 'h0;
         endcase
