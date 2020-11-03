@@ -1,0 +1,18 @@
+package:
+  name: udma_uart
+  authors: 
+    - "Jie Chen <jie.chen@greenwaves-technologies.com>"
+    - "Alfio Di Mauro <adimauro@iis.ee.ethz.ch>"
+    - "Antonio Pullini <pullinia@iis.ee.ethz.ch>"
+    - "Florent Rotenberg <florent.rotenberg@greenwaves-technologies.com>"
+    - "Pasquale Davide Schiavone <pschiavo@iis.ee.ethz.ch>"
+
+dependencies:
+  udma_core: {path: "../udma_core"} # to be updated with git repo
+  common_cells: { git: "git@github.com:pulp-platform/common_cells.git", version: 1.13.1 }
+
+sources:
+  - rtl/udma_uart_reg_if.sv
+  - rtl/udma_uart_top.sv
+  - rtl/udma_uart_rx.sv
+  - rtl/udma_uart_tx.sv
