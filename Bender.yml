@@ -21,4 +21,5 @@ sources:
   - rtl/udma_uart_tx.sv
     # Level 1
   - rtl/udma_uart_top.sv
+    # level 2
   - rtl/udma_uart_wrap.sv
