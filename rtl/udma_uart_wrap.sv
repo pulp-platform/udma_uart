@@ -31,6 +31,7 @@
     output logic  [31:0] cfg_data_o,
 
     output udma_evt_t    events_o,
+    input  udma_evt_t    events_i,
 
     // UDMA CHANNEL CONNECTION
     UDMA_LIN_CH.rx_out   rx_ch[0:0],
