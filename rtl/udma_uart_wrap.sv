@@ -18,6 +18,8 @@
  */
  module udma_uart_wrap
     import udma_pkg::udma_evt_t;
+    import pulp_io_pkg::uart_to_pad_t;
+    import pulp_io_pkg::pad_to_uart_t;
 (
     input  logic         sys_clk_i,
     input  logic         periph_clk_i,
@@ -38,8 +40,8 @@
     UDMA_LIN_CH.tx_in    tx_ch[0:0],
 
     // PAD SIGNALS CONNECTION
-	BIPAD_IF.PERIPH_SIDE PAD_UART_RX,
-	BIPAD_IF.PERIPH_SIDE PAD_UART_TX
+    output  uart_to_pad_t uart_to_pad,
+    input   pad_to_uart_t pad_to_uart
 
 
 );
@@ -51,8 +53,8 @@ udma_uart_top #(.L2_AWIDTH_NOAL(L2_AWIDTH_NOAL), .TRANS_SIZE(TRANS_SIZE)) i_udma
     .sys_clk_i          (sys_clk_i       ),
     .periph_clk_i       (periph_clk_i    ),
     .rstn_i             (rstn_i          ),
-    .uart_rx_i          (PAD_UART_RX.IN  ),
-    .uart_tx_o          (PAD_UART_TX.OUT ),
+    .uart_rx_i          (pad_to_uart.rx_i),
+    .uart_tx_o          (uart_to_pad.tx_o),
     .rx_char_event_o    (events_o[0]     ),
     .err_event_o        (events_o[1]     ),
     
@@ -102,10 +104,7 @@ udma_uart_top #(.L2_AWIDTH_NOAL(L2_AWIDTH_NOAL), .TRANS_SIZE(TRANS_SIZE)) i_udma
 assign events_o[2] = 1'b0;
 assign events_o[3] = 1'b0;
 
-// freezing pad direction
-assign PAD_UART_RX.OE = 1'b0;
-assign PAD_UART_RX.OUT = 1'b0;
-assign PAD_UART_TX.OE = 1'b1;
+assign uart_to_pad.tx_oe = 1'b1;
 
 // assigning unused signals
 assign rx_ch[0].stream = '0;
