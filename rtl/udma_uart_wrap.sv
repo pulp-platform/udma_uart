@@ -18,8 +18,8 @@
  */
  module udma_uart_wrap
     import udma_pkg::udma_evt_t;
-    import pulp_io_pkg::uart_to_pad_t;
-    import pulp_io_pkg::pad_to_uart_t;
+    import uart_pkg::uart_to_pad_t;
+    import uart_pkg::pad_to_uart_t;
 (
     input  logic         sys_clk_i,
     input  logic         periph_clk_i,
