@@ -55,8 +55,8 @@ udma_uart_top #(.L2_AWIDTH_NOAL(L2_AWIDTH_NOAL), .TRANS_SIZE(TRANS_SIZE)) i_udma
     .rstn_i             (rstn_i          ),
     .uart_rx_i          (pad_to_uart.rx_i),
     .uart_tx_o          (uart_to_pad.tx_o),
-    .rx_char_event_o    (events_o[0]     ),
-    .err_event_o        (events_o[1]     ),
+    .rx_char_event_o    (events_o[2]     ),
+    .err_event_o        (events_o[3]     ),
     
     .cfg_data_i         (cfg_data_i      ),
     .cfg_addr_i         (cfg_addr_i      ),
@@ -101,10 +101,8 @@ udma_uart_top #(.L2_AWIDTH_NOAL(L2_AWIDTH_NOAL), .TRANS_SIZE(TRANS_SIZE)) i_udma
 );
 
 // padding unused events
-assign events_o[2] = 1'b0;
-assign events_o[3] = 1'b0;
-
-assign uart_to_pad.tx_oe = 1'b1;
+assign events_o[0] = rx_ch[0].events;
+assign events_o[1] = tx_ch[0].events;
 
 // assigning unused signals
 assign rx_ch[0].stream = '0;
