@@ -65,16 +65,17 @@ udma_uart_top #(.L2_AWIDTH_NOAL(L2_AWIDTH_NOAL), .TRANS_SIZE(TRANS_SIZE)) i_udma
     .cfg_ready_o        (cfg_ready_o     ),
     .cfg_data_o         (cfg_data_o      ),
     
-    .cfg_rx_startaddr_o (rx_ch[0].startaddr ),
-    .cfg_rx_size_o      (rx_ch[0].size      ), 
-    .cfg_rx_datasize_o  (                   ),
-    .cfg_rx_continuous_o(rx_ch[0].continuous),
-    .cfg_rx_en_o        (rx_ch[0].cen       ),
-    .cfg_rx_clr_o       (rx_ch[0].clr       ),
-    .cfg_rx_en_i        (rx_ch[0].en        ),
-    .cfg_rx_pending_i   (rx_ch[0].pending   ),
-    .cfg_rx_curr_addr_i (rx_ch[0].curr_addr ),
-    .cfg_rx_bytes_left_i(rx_ch[0].bytes_left), 
+    .cfg_rx_startaddr_o (rx_ch[0].startaddr  ),
+    .cfg_rx_size_o      (rx_ch[0].size       ), 
+    .cfg_rx_datasize_o  (                    ),
+    .cfg_rx_continuous_o(rx_ch[0].continuous ),
+    .cfg_rx_en_o        (rx_ch[0].cen        ),
+    .cfg_rx_clr_o       (rx_ch[0].clr        ),
+    .cfg_rx_en_i        (rx_ch[0].en         ),
+    .cfg_rx_pending_i   (rx_ch[0].pending    ),
+    .cfg_rx_curr_addr_i (rx_ch[0].curr_addr  ),
+    .cfg_rx_bytes_left_i(rx_ch[0].bytes_left ), 
+    .cfg_rx_dest_o      (rx_ch[0].destination),
     
     .cfg_tx_startaddr_o (tx_ch[0].startaddr ),
     .cfg_tx_size_o      (tx_ch[0].size      ), 
@@ -107,7 +108,7 @@ assign events_o[1] = tx_ch[0].events;
 // assigning unused signals
 assign rx_ch[0].stream = '0;
 assign rx_ch[0].stream_id = '0;
-assign rx_ch[0].destination = '0;
+//assign rx_ch[0].destination = '0;
 assign tx_ch[0].destination = '0;
 
 endmodule : udma_uart_wrap
