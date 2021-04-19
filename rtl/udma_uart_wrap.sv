@@ -111,4 +111,5 @@ assign rx_ch[0].stream_id = '0;
 //assign rx_ch[0].destination = '0;
 assign tx_ch[0].destination = '0;
 
+assign uart_to_pad.tx_oe = 1'b1;
 endmodule : udma_uart_wrap
