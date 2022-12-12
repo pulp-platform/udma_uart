@@ -18,7 +18,10 @@
 //
 ///////////////////////////////////////////////////////////////////////////////
 
-module udma_uart_top #(
+module udma_uart_top 
+    import udma_pkg::*;
+
+    #(
     parameter L2_AWIDTH_NOAL = 12,
     parameter TRANS_SIZE     = 16
 ) (
@@ -49,6 +52,7 @@ module udma_uart_top #(
     input  logic                      cfg_rx_pending_i,
     input  logic [L2_AWIDTH_NOAL-1:0] cfg_rx_curr_addr_i,
     input  logic     [TRANS_SIZE-1:0] cfg_rx_bytes_left_i,
+    output ch_dest_t                  cfg_rx_dest_o,
 
     output logic [L2_AWIDTH_NOAL-1:0] cfg_tx_startaddr_o,
     output logic     [TRANS_SIZE-1:0] cfg_tx_size_o,
@@ -150,6 +154,7 @@ module udma_uart_top #(
         .cfg_rx_pending_i   ( cfg_rx_pending_i    ),
         .cfg_rx_curr_addr_i ( cfg_rx_curr_addr_i  ),
         .cfg_rx_bytes_left_i( cfg_rx_bytes_left_i ),
+        .cfg_rx_dest_o      ( cfg_rx_dest_o       ),
 
         .cfg_tx_startaddr_o ( cfg_tx_startaddr_o  ),
         .cfg_tx_size_o      ( cfg_tx_size_o       ),

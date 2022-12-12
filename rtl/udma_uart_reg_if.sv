@@ -35,8 +35,11 @@
 `define REG_IRQ_EN       5'b01011 //BASEADDR+0x2C
 `define REG_VALID        5'b01100 //BASEADDR+0x30
 `define REG_DATA         5'b01101 //BASEADDR+0x34
+`define REG_DST          5'b01110 //BASEADDR+0x38
 
-module udma_uart_reg_if #(
+module udma_uart_reg_if 
+    import udma_pkg::*;
+#(
     parameter L2_AWIDTH_NOAL = 12,
     parameter TRANS_SIZE     = 16
 ) (
@@ -59,6 +62,7 @@ module udma_uart_reg_if #(
     input  logic                      cfg_rx_pending_i,
     input  logic [L2_AWIDTH_NOAL-1:0] cfg_rx_curr_addr_i,
     input  logic     [TRANS_SIZE-1:0] cfg_rx_bytes_left_i,
+    output ch_dest_t                  cfg_rx_dest_o,
 
     output logic [L2_AWIDTH_NOAL-1:0] cfg_tx_startaddr_o,
     output logic     [TRANS_SIZE-1:0] cfg_tx_size_o,
@@ -78,6 +82,7 @@ module udma_uart_reg_if #(
     input  logic                [7:0] rx_data_i,
     input  logic                      rx_valid_i,
     output logic                      rx_ready_o,
+
 
     output logic                      stop_bits_o,
     output logic                      parity_en_o,
@@ -123,6 +128,7 @@ module udma_uart_reg_if #(
     logic                      r_uart_rx_irq_en;
     logic                [7:0] r_uart_rx_data;
     logic                      r_uart_rx_data_valid;
+    ch_dest_t                  r_rx_dest;
 
     assign rx_ready_o =  s_rx_valid_clr;
 
@@ -152,6 +158,8 @@ module udma_uart_reg_if #(
     assign rx_irq_en_o     = r_uart_rx_irq_en;
     assign err_irq_en_o    = r_uart_err_irq_en;
 
+    assign cfg_rx_dest_o   = r_rx_dest;
+
     always_ff @(posedge clk_i, negedge rstn_i)
     begin
         if(~rstn_i)
@@ -167,6 +175,7 @@ module udma_uart_reg_if #(
             r_tx_continuous    <=  'h0;
             r_tx_en             =  'h0;
             r_tx_clr            =  'h0;
+            r_rx_dest          <=  'h0;
             r_uart_div         <=  'h0;
             r_uart_stop_bits   <=  'h0;
             r_uart_bits        <=  'h0;
@@ -239,6 +248,10 @@ module udma_uart_reg_if #(
                     r_tx_en            = cfg_data_i[4];
                     r_tx_continuous   <= cfg_data_i[0];
                 end
+                `REG_DST:
+                begin
+                    r_rx_dest         <= cfg_data_i[DEST_SIZE-1:0];
+                end
 
                 `REG_UART_SETUP:
                 begin
@@ -299,6 +312,9 @@ module udma_uart_reg_if #(
              cfg_data_o     = {24'h0, r_uart_rx_data};
              s_rx_valid_clr = 1'b1;
           end
+        `REG_DST:
+            cfg_data_o = 32'h00000000 | r_rx_dest;
+
         default:
             cfg_data_o = 'h0;
         endcase
