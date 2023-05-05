@@ -25,6 +25,7 @@ module udma_uart_top #(
     input  logic                      sys_clk_i,
     input  logic                      periph_clk_i,
 	input  logic   	                  rstn_i,
+    input logic                       dft_test_mode_i,
 
 	input  logic                      uart_rx_i,
 	output logic                      uart_tx_o,
@@ -231,12 +232,12 @@ module udma_uart_top #(
     udma_dc_fifo #(8,4) u_dc_fifo_rx
     (
         .src_clk_i    ( periph_clk_i       ),  
-        .src_rstn_i   ( rstn_i & ~s_uart_rx_clean_fifo ),  
+        .src_rstn_i   ( rstn_i & ~s_uart_rx_clean_fifo | dft_test_mode_i),
         .src_data_i   ( s_data_rx_dc       ),
         .src_valid_i  ( s_data_rx_dc_valid ),
         .src_ready_o  ( s_data_rx_dc_ready ),
         .dst_clk_i    ( sys_clk_i          ),
-        .dst_rstn_i   ( rstn_i & ~s_uart_rx_clean_fifo ),
+        .dst_rstn_i   ( rstn_i & ~s_uart_rx_clean_fifo | dft_test_mode_i),
         .dst_data_o   ( data_rx_o[7:0]     ),
         .dst_valid_o  ( data_rx_valid_o    ),
         .dst_ready_i  ( s_data_rx_ready_mux    )
