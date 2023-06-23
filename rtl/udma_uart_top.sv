@@ -28,6 +28,11 @@ module udma_uart_top #(
 
 	input  logic                      uart_rx_i,
 	output logic                      uart_tx_o,
+    //
+    output logic                      uart_rts_o,
+    input  logic                      uart_cts_i,
+    //
+
 
     output logic                      rx_char_event_o,
     output logic                      err_event_o,
@@ -118,6 +123,15 @@ module udma_uart_top #(
     logic         s_err_rx_parity_sync;
     logic         s_rx_char_event;
     logic         s_rx_char_event_sync;
+    //
+    //logic         s_rts;
+    //logic         s_cts;
+    logic         r_rts_en;
+    logic         r_cts_en;
+    logic         s_cfg_en_tx;
+
+    //assign s_cts = s_rts;
+    //
 
     assign cfg_tx_datasize_o  = 2'b00;
     assign cfg_rx_datasize_o  = 2'b00;
@@ -177,7 +191,25 @@ module udma_uart_top #(
         .rx_irq_en_o        ( s_uart_rx_irq_en    ),
         .err_irq_en_o       ( s_uart_err_irq_en   ),
         .en_rx_o			( s_uart_en_rx        ),
-        .en_tx_o			( s_uart_en_tx        )
+        .en_tx_o			( s_uart_en_tx        ),
+        //
+        .rts_en_o           ( r_rts_en            ),
+        .cts_en_o           ( r_cts_en            ),
+        .rts_i              ( uart_rts_o          ),
+        .cts_i              ( uart_cts_i          )
+    );
+
+    udma_uart_cf udma_uart_cf(
+        .rts_en_i           ( r_rts_en              ),
+        .rx_ready_i         ( s_data_rx_dc_ready    ),
+
+        .cts_en_i           ( r_cts_en              ),
+        .cts_i              ( uart_cts_i            ),
+        .tx_en_i            ( r_uart_en_tx_sync[2]  ),
+
+        .rts_o              ( uart_rts_o            ),
+
+        .tx_en_o            ( s_cfg_en_tx           )
     );
 
 
@@ -217,14 +249,17 @@ module udma_uart_top #(
         .rstn_i          ( rstn_i             ),
 		.tx_o            ( uart_tx_o          ),
         .busy_o          ( s_uart_status[0]   ),
-        .cfg_en_i        ( r_uart_en_tx_sync[2] ),
+        .cfg_en_i        ( r_uart_en_tx_sync[2]),//r_uart_en_tx_sync[2]
 		.cfg_div_i       ( r_uart_div         ),
 		.cfg_parity_en_i ( r_uart_parity_en   ),
 		.cfg_bits_i      ( r_uart_bits        ),
 		.cfg_stop_bits_i ( r_uart_stop_bits   ),
 		.tx_data_i       ( s_data_tx_dc       ),
 		.tx_valid_i      ( s_data_tx_dc_valid ),
-		.tx_ready_o      ( s_data_tx_dc_ready )
+		.tx_ready_o      ( s_data_tx_dc_ready ),
+        //
+        .cts_i           ( s_cfg_en_tx        )//s_cts
+        //.cts_en_i        ( r_cts_en           ) //r_cts_en
     );
 
 
@@ -260,6 +295,9 @@ module udma_uart_top #(
 		.rx_data_o       ( s_data_rx_dc       ),
 		.rx_valid_o      ( s_data_rx_dc_valid ),
 		.rx_ready_i      ( s_data_rx_dc_ready )
+        //
+        //.rts_o           ( s_rts              ),
+        //.rts_en_i        ( r_rts_en           ) //r_rts_en
     );
 
     edge_propagator i_ep_err_overflow (

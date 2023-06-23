@@ -29,7 +29,10 @@ module udma_uart_tx (
 		input  logic            cfg_stop_bits_i,
 		input  logic  [7:0]     tx_data_i,
 		input  logic            tx_valid_i,
-		output logic            tx_ready_o
+		output logic            tx_ready_o,
+		//
+		input logic				cts_i
+		//input logic				cts_en_i
 		);
 	
 	enum logic [2:0] {IDLE,START_BIT,DATA,PARITY,STOP_BIT_FIRST,STOP_BIT_LAST} CS,NS;
@@ -51,8 +54,15 @@ module udma_uart_tx (
 	logic [15:0] baud_cnt;
 	logic        baudgen_en;
 	logic        bit_done;
+
+	//
+	//logic s_tx_en;
+	//
 	
     assign busy_o = (CS != IDLE);
+    //
+    //assign s_tx_en = (cts_en_i == 1) ? ~cts_i : cfg_en_i;
+    //
 
     always_comb
     begin
@@ -81,16 +91,19 @@ module udma_uart_tx (
 		case(CS)
 			IDLE:
             begin
-            	if (cfg_en_i)
-            		tx_ready_o = 1'b1;
-				if (tx_valid_i)
-				begin
-					NS = START_BIT;
-					sampleData = 1'b1;
-					reg_data_next = tx_data_i;
+        		if (cts_i)
+        		begin
+        			if (cfg_en_i) //s_tx_en
+        				tx_ready_o = 1'b1;
+					if (tx_valid_i)
+					begin
+						NS = START_BIT;
+						sampleData = 1'b1;
+						reg_data_next = tx_data_i;
+					end
 				end
-            end
-
+			end
+            
 			START_BIT:
 			begin
 				tx_o = 1'b0;
@@ -182,7 +195,7 @@ module udma_uart_tx (
 			end
 
 			reg_bit_count  <= reg_bit_count_next;
-            if(cfg_en_i)
+            if(cfg_en_i) //s_tx_en
 	           CS <= NS;
             else
                CS <= IDLE;

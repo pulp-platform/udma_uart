@@ -34,6 +34,9 @@ module udma_uart_rx (
 		output logic  [7:0]     rx_data_o,
 		output logic            rx_valid_o,
 		input  logic            rx_ready_i
+		//
+		//output logic			rts_o,
+		//input  logic			rts_en_i
 		);
 	
 	enum logic [2:0] {IDLE,START_BIT,DATA,PARITY,STOP_BIT} CS,NS;
@@ -66,6 +69,9 @@ module udma_uart_rx (
     logic        s_err_clear;
 
     assign busy_o = (CS != IDLE);
+    //
+    //assign rts_o = ~rx_ready_i & rts_en_i;
+    //
 
     always_comb
     begin
