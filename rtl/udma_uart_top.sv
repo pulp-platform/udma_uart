@@ -233,18 +233,47 @@ module udma_uart_top
     );
 
 
-    udma_dc_fifo #(8,4) u_dc_fifo_rx
-    (
-        .src_clk_i    ( periph_clk_i       ),  
-        .src_rstn_i   ( rstn_i & ~s_uart_rx_clean_fifo ),  
-        .src_data_i   ( s_data_rx_dc       ),
-        .src_valid_i  ( s_data_rx_dc_valid ),
-        .src_ready_o  ( s_data_rx_dc_ready ),
-        .dst_clk_i    ( sys_clk_i          ),
-        .dst_rstn_i   ( rstn_i & ~s_uart_rx_clean_fifo ),
-        .dst_data_o   ( data_rx_o[7:0]     ),
-        .dst_valid_o  ( data_rx_valid_o    ),
-        .dst_ready_i  ( s_data_rx_ready_mux    )
+    // RX CDC FIFO. The previous implementation used `udma_dc_fifo`
+    // (which wraps `cdc_fifo_gray`) and gated `src_rstn_i` and
+    // `dst_rstn_i` with the software-controlled `s_uart_rx_clean_fifo`
+    // bit to "flush" the FIFO. That violates the explicit contract of
+    // `cdc_fifo_gray.sv` (lines 53-59):
+    //
+    //     "This module must not be used if warm reset capability is a
+    //     requirement. ... If you need warm reset/clear/flush
+    //     capabilities, use ... cdc_fifo_gray_clearable."
+    //
+    // We use `cdc_fifo_gray_clearable` instead. It internally uses a
+    // `cdc_reset_ctrlr` to safely sequence the clear across both clock
+    // domains, eliminating the spurious-transaction risk that the
+    // previous implementation exposed every time firmware toggled
+    // `r_uart_rx_clean_fifo` (e.g., on baud-rate change or error
+    // recovery).
+    cdc_fifo_gray_clearable #(
+        .WIDTH                ( 8           ),
+        .LOG_DEPTH            ( 2           ),
+        .SYNC_STAGES          ( 2           ),
+        // Warm clear is now properly sequenced; we don't need the
+        // CLEAR_ON_ASYNC_RESET feature.
+        .CLEAR_ON_ASYNC_RESET ( 1'b0        )
+    ) u_dc_fifo_rx (
+        .src_clk_i           ( periph_clk_i           ),
+        .src_rst_ni          ( rstn_i                 ),
+        .src_clear_i         ( 1'b0                   ),
+        .src_clear_pending_o (                        ),
+        .src_data_i          ( s_data_rx_dc           ),
+        .src_valid_i         ( s_data_rx_dc_valid     ),
+        .src_ready_o         ( s_data_rx_dc_ready     ),
+        .dst_clk_i           ( sys_clk_i              ),
+        .dst_rst_ni          ( rstn_i                 ),
+        // The clear is asserted in the dst (sys_clk_i) domain by the
+        // config-register write path; cdc_fifo_gray_clearable
+        // propagates it safely to the src side.
+        .dst_clear_i         ( s_uart_rx_clean_fifo   ),
+        .dst_clear_pending_o (                        ),
+        .dst_data_o          ( data_rx_o[7:0]         ),
+        .dst_valid_o         ( data_rx_valid_o        ),
+        .dst_ready_i         ( s_data_rx_ready_mux    )
     );
 
    assign s_data_rx_ready_mux = (s_uart_rx_irq_en | s_uart_rx_polling_en) ? s_data_rx_ready : data_rx_ready_i;
