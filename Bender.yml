@@ -9,7 +9,12 @@ package:
 
 dependencies:
   udma_core: { git: "https://github.com/pulp-platform/udma_core.git", version: 2.0.0 }
-  common_cells: { git: "https://github.com/pulp-platform/common_cells.git", version: 1.13.1 }
+  # Bumped from 1.13.1 to 1.32.0 to pick up `cdc_fifo_gray_clearable`,
+  # which is required to fix the warm-reset misuse of `cdc_fifo_gray`
+  # in `udma_uart_top`. See `cdc_fifo_gray.sv` lines 53-59 for the
+  # documented prohibition (`cdc_fifo_gray_clearable` was added in
+  # common_cells v1.24.0).
+  common_cells: { git: "https://github.com/pulp-platform/common_cells.git", version: 1.32.0 }
 
 sources:
     # Source files grouped in levels. Files in level 0 have no dependencies on files in this
