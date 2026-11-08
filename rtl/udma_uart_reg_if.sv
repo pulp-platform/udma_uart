@@ -130,7 +130,7 @@ module udma_uart_reg_if
     logic                      r_uart_rx_data_valid;
     ch_dest_t                  r_rx_dest;
 
-    assign rx_ready_o =  s_rx_valid_clr;
+    assign rx_ready_o =  s_rx_valid_clr & r_uart_rx_data_valid;
 
     assign s_wr_addr = (cfg_valid_i & ~cfg_rwn_i) ? cfg_addr_i : 5'h0;
     assign s_rd_addr = (cfg_valid_i &  cfg_rwn_i) ? cfg_addr_i : 5'h0;
@@ -209,7 +209,7 @@ module udma_uart_reg_if
                 r_err_parity <= 1'b0;
 
            if (r_uart_rx_polling_en | r_uart_rx_irq_en) begin
-              if(rx_valid_i & ~s_rx_valid_clr) begin
+              if(rx_valid_i & ~rx_ready_o) begin
                  r_uart_rx_data       <= rx_data_i;
                  r_uart_rx_data_valid <= rx_valid_i;
               end
